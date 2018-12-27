@@ -261,7 +261,7 @@ bool IsFileDigitallySigned(__in __notnull __wchar_t* wszFilePath, __in_opt HANDL
     ReturnVal = ::WinVerifyTrust(0, &ActionGuid, &WintrustStructure);
 
     //	Check return.
-	if (0  != ReturnVal)
+	if (0  == ReturnVal)
 		ReturnFlag = true;
 
     //	Free context.
@@ -1206,7 +1206,7 @@ void ShowDataDirContent(__in PIMAGE_DATA_DIRECTORY lpImgDataDir, __in DWORD dwNu
 				if (lpImgDataDir[ncIndex].VirtualAddress || lpImgDataDir[ncIndex].Size)
 					::SetConsoleTextAttribute(hStdOut, csbi.wAttributes);
 				else
-					::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY | COMMON_LVB_UNDERSCORE);
+					::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY);
 			}
 
 			switch(ncIndex)
@@ -1520,10 +1520,10 @@ void ShowSections(__in PIMAGE_SECTION_HEADER lpImgSectionHdr, __in PIMAGE_OPTION
 				if (lpImgSectionHdr[cnwSectIndex].Misc.VirtualSize <= lpImgSectionHdr[cnwSectIndex].SizeOfRawData || lpImgSectionHdr[cnwSectIndex].SizeOfRawData % lpImgOptHdr ->FileAlignment)
 					::SetConsoleTextAttribute(hStdOut, csbi.wAttributes);
 				else
-					::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY | COMMON_LVB_UNDERSCORE);
+					::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY);
 			}
 			else
-				::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY | COMMON_LVB_UNDERSCORE);
+				::SetConsoleTextAttribute(hStdOut, FOREGROUND_INTENSITY);
 
 
 			ShowResourceStringArgs(hStdOut, IDS_MSG_SECTION_NUMBER_NAME, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), cnwSectIndex, &wszSectName[0]);
@@ -1843,7 +1843,6 @@ int __cdecl wmain(int argc, __wchar_t* argv[])
 	LPTOP_LEVEL_EXCEPTION_FILTER lpEFOriginal(::SetUnhandledExceptionFilter(gcfcUnhandledExceptionFilter));
 
 	HANDLE hOut(::GetStdHandle(STD_OUTPUT_HANDLE));
-	HANDLE hProcessHeap(::GetProcessHeap());
 
 	__wchar_t szOutStrHeader[MAX_PATH] = { 0 };
 	__wchar_t szOutStrVersion[MAX_PATH] = { 0 };
@@ -1856,7 +1855,7 @@ int __cdecl wmain(int argc, __wchar_t* argv[])
 	bool fbIdentOk(false);
 	bool fbReportEvent(false);
 
-	if (hOut && hProcessHeap)
+	if (hOut)
 	{
 		__wchar_t* lpwszDescription(nullptr);
 		UINT cbLen(0);
@@ -1953,337 +1952,338 @@ int __cdecl wmain(int argc, __wchar_t* argv[])
 							ShowUsage(hOut);
 							nRetCode = -11;		//	Invalid option key
 						}
+					}
+
+					if (!nRetCode)
+					{
+						if (fbVerbose)
+						{
+							ShowResourceString(hOut, IDS_MSG_VERBOSE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+							if (fbChecksum)
+								ShowResourceString(hOut, IDS_MSG_CHECKSUM, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+							else
+								ShowResourceString(hOut, IDS_MSG_NO_CHECKSUM, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+
+							if (fbClean)
+							{
+								ShowResourceString(hOut, IDS_MSG_CLEAN_ON, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+								ShowResourceStringArgs(hOut, IDS_MSG_FILLER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), byFiller);
+							}
+							else
+								ShowResourceString(hOut, IDS_MSG_CLEAN_OFF, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+
+							bool fbAdmin(false);
+							if (true == (fbAdmin = IsUserAdmin()))
+								ShowResourceString(hOut, IDS_UNDERADMIN_STRING, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+
+							TOKEN_ELEVATION_TYPE tet(static_cast<TOKEN_ELEVATION_TYPE>(0));
+							if (TokenElevationTypeFull == (tet = GetElevationType()))
+								ShowResourceString(hOut, IDS_ELEVATED_STRING, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+							if (fbAdmin || (TokenElevationTypeFull == tet))
+								ShowString(hOut, szNewLine);
+						}
+
+						if (!CanAccessFile(argv[1], fbClean ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ))
+						{
+							ShowResourceString(hOut, IDS_MSG_FILE_ACCESS_DENIED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+							ShowString(hOut, szNewLine);
+							nRetCode = -5;		//	Access denied.
+						}
 						else
 						{
-							if (fbVerbose)
+							if (true == (fbDigSig = IsFileDigitallySigned(argv[1], nullptr)))
 							{
-								ShowResourceString(hOut, IDS_MSG_VERBOSE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-								if (fbChecksum)
-									ShowResourceString(hOut, IDS_MSG_CHECKSUM, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-								else
-									ShowResourceString(hOut, IDS_MSG_NO_CHECKSUM, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-
-								if (fbClean)
+								ShowResourceString(hOut, IDS_MSG_FILE_SIGNED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+								if (fbDigSig && fbClean)
 								{
-									ShowResourceString(hOut, IDS_MSG_CLEAN_ON, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-									ShowResourceStringArgs(hOut, IDS_MSG_FILLER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), byFiller);
+									ShowResourceString(hOut, IDS_MSG_CLEAN_ON_SIGNED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+									fbClean = false;
 								}
-								else
-									ShowResourceString(hOut, IDS_MSG_CLEAN_OFF, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-
-								bool fbAdmin(false);
-								if (true == (fbAdmin = IsUserAdmin()))
-									ShowResourceString(hOut, IDS_UNDERADMIN_STRING, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-
-								TOKEN_ELEVATION_TYPE tet(static_cast<TOKEN_ELEVATION_TYPE>(0));
-								if (TokenElevationTypeFull == (tet = GetElevationType()))
-									ShowResourceString(hOut, IDS_ELEVATED_STRING, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-								if (fbAdmin || (TokenElevationTypeFull == tet))
-									ShowString(hOut, szNewLine);
 							}
 
-							if (!CanAccessFile(argv[1], fbClean ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ))
-							{
-								ShowResourceString(hOut, IDS_MSG_FILE_ACCESS_DENIED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-								ShowString(hOut, szNewLine);
-								nRetCode = -5;		//	Access denied.
+							HANDLE hFile(::CreateFileW(argv[1], fbClean ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0));
+							if (INVALID_HANDLE_VALUE == hFile || !::GetFileSizeEx(hFile, &liFileSize))
+							{									
+								ShowSysErrorMsg(::GetLastError(), hOut);
+								if (INVALID_HANDLE_VALUE != hFile)
+									::CloseHandle(hFile);
+								nRetCode = -3;		//	Unable to open file or obtain file size 
 							}
 							else
 							{
-								if (true == (fbDigSig = IsFileDigitallySigned(argv[1], nullptr)))
+								if (fbDigSig)
 								{
-									ShowResourceString(hOut, IDS_MSG_FILE_SIGNED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-									if (fbDigSig && fbClean)
+									GUID guidAction = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+									WINTRUST_FILE_INFO sWintrustFileInfo = { 0 };
+									WINTRUST_DATA sWintrustData = { 0 };
+
+									sWintrustFileInfo.cbStruct = sizeof(WINTRUST_FILE_INFO);
+									sWintrustFileInfo.pcwszFilePath = argv[1];
+									sWintrustFileInfo.hFile = hFile;
+
+									sWintrustData.cbStruct = sizeof(WINTRUST_DATA);
+									sWintrustData.dwUIChoice = WTD_UI_NONE;
+									sWintrustData.fdwRevocationChecks = WTD_REVOKE_NONE;
+									sWintrustData.dwUnionChoice = WTD_CHOICE_FILE;
+									sWintrustData.pFile = &sWintrustFileInfo;
+									sWintrustData.dwStateAction = WTD_STATEACTION_VERIFY;
+
+									HRESULT hr(::WinVerifyTrust((HWND)INVALID_HANDLE_VALUE, &guidAction, &sWintrustData));
+									if (SUCCEEDED(hr))
 									{
-										ShowResourceString(hOut, IDS_MSG_CLEAN_ON_SIGNED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-										fbClean = false;
-									}
-								}
+										// Retreive the signer certificate and display its information
+										CRYPT_PROVIDER_DATA const *psProvData(nullptr);
+										CRYPT_PROVIDER_SGNR       *psProvSigner(nullptr);
+										CRYPT_PROVIDER_CERT       *psProvCert(nullptr);
+										FILETIME                   localFt = { 0 };
+										SYSTEMTIME                 sysTime = { 0 };
 
-								HANDLE hFile(::CreateFileW(argv[1], fbClean ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0));
-								if (INVALID_HANDLE_VALUE == hFile || !::GetFileSizeEx(hFile, &liFileSize))
-								{									
-									ShowSysErrorMsg(::GetLastError(), hOut);
-									if (INVALID_HANDLE_VALUE != hFile)
-										::CloseHandle(hFile);
-									nRetCode = -3;		//	Unable to open file or obtain file size 
-								}
-								else
-								{
-									if (fbDigSig)
-									{
-										GUID guidAction = WINTRUST_ACTION_GENERIC_VERIFY_V2;
-										WINTRUST_FILE_INFO sWintrustFileInfo = { 0 };
-										WINTRUST_DATA sWintrustData = { 0 };
-
-										sWintrustFileInfo.cbStruct = sizeof(WINTRUST_FILE_INFO);
-										sWintrustFileInfo.pcwszFilePath = argv[1];
-										sWintrustFileInfo.hFile = hFile;
-
-										sWintrustData.cbStruct = sizeof(WINTRUST_DATA);
-										sWintrustData.dwUIChoice = WTD_UI_NONE;
-										sWintrustData.fdwRevocationChecks = WTD_REVOKE_NONE;
-										sWintrustData.dwUnionChoice = WTD_CHOICE_FILE;
-										sWintrustData.pFile = &sWintrustFileInfo;
-										sWintrustData.dwStateAction = WTD_STATEACTION_VERIFY;
-
-										HRESULT hr(::WinVerifyTrust((HWND)INVALID_HANDLE_VALUE, &guidAction, &sWintrustData));
-										if (SUCCEEDED(hr))
+										psProvData = ::WTHelperProvDataFromStateData(sWintrustData.hWVTStateData);
+										if (psProvData)
 										{
-											// Retreive the signer certificate and display its information
-											CRYPT_PROVIDER_DATA const *psProvData(nullptr);
-											CRYPT_PROVIDER_SGNR       *psProvSigner(nullptr);
-											CRYPT_PROVIDER_CERT       *psProvCert(nullptr);
-											FILETIME                   localFt = { 0 };
-											SYSTEMTIME                 sysTime = { 0 };
-
-											psProvData = ::WTHelperProvDataFromStateData(sWintrustData.hWVTStateData);
-											if (psProvData)
+											psProvSigner = WTHelperGetProvSignerFromChain(const_cast<PCRYPT_PROVIDER_DATA>(psProvData), 0 , FALSE, 0);
+											if (psProvSigner && fbVerbose)
 											{
-												psProvSigner = WTHelperGetProvSignerFromChain(const_cast<PCRYPT_PROVIDER_DATA>(psProvData), 0 , FALSE, 0);
-												if (psProvSigner && fbVerbose)
+												::FileTimeToLocalFileTime(&psProvSigner->sftVerifyAsOf, &localFt);
+												::FileTimeToSystemTime(&localFt, &sysTime);
+
+												if (fbVerbose)
+													ShowResourceStringArgs(hOut, IDS_IMG_SIGNATURE_DATETIME, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), sysTime.wDay, sysTime.wMonth,sysTime.wYear, sysTime.wHour,sysTime.wMinute,sysTime.wSecond);
+
+												if (psProvSigner ->csCertChain && fbVerbose)
 												{
-													::FileTimeToLocalFileTime(&psProvSigner->sftVerifyAsOf, &localFt);
+													if (1 == psProvSigner ->csCertChain)
+														ShowResourceString(hOut, IDS_IMG_FILE_SIGNER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+													else
+														ShowResourceString(hOut, IDS_IMG_FILE_SIGNERS, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+
+													for (DWORD dwCertIndex(0); dwCertIndex < psProvSigner ->csCertChain; ++dwCertIndex)
+													{
+														psProvCert = ::WTHelperGetProvCertFromChain(psProvSigner, dwCertIndex);
+														if (psProvCert)
+														{
+															__wchar_t* szCertDesc(::GetCertificateDescription(psProvCert->pCert));
+															if (szCertDesc)
+															{
+																ShowString(hOut, szCertDesc);
+																ShowString(hOut, szNewLine);
+																ReleaseLoadedString(szCertDesc);
+															}
+														}
+													}
+												}
+
+												if (psProvSigner->csCounterSigners && fbVerbose)
+												{
+													// retreive timestamp information
+													::FileTimeToLocalFileTime(&psProvSigner->pasCounterSigners[0].sftVerifyAsOf, &localFt);
 													::FileTimeToSystemTime(&localFt, &sysTime);
 
-													if (fbVerbose)
-														ShowResourceStringArgs(hOut, IDS_IMG_SIGNATURE_DATETIME, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), sysTime.wDay, sysTime.wMonth,sysTime.wYear, sysTime.wHour,sysTime.wMinute,sysTime.wSecond);
+													ShowResourceStringArgs(hOut, IDS_IMG_TIMESTAMP_DATETIME, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), sysTime.wDay, sysTime.wMonth,sysTime.wYear, sysTime.wHour,sysTime.wMinute,sysTime.wSecond);
 
-													if (psProvSigner ->csCertChain && fbVerbose)
+													if (psProvSigner->csCounterSigners)
 													{
-														if (1 == psProvSigner ->csCertChain)
-															ShowResourceString(hOut, IDS_IMG_FILE_SIGNER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+														if (1 == psProvSigner->csCounterSigners)
+															ShowResourceString(hOut, IDS_IMG_TIMESTAMP_SIGNER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 														else
-															ShowResourceString(hOut, IDS_IMG_FILE_SIGNERS, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+															ShowResourceString(hOut, IDS_IMG_TIMESTAMP_SIGNERS, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 
-														for (DWORD dwCertIndex(0); dwCertIndex < psProvSigner ->csCertChain; ++dwCertIndex)
+														for (DWORD idxCert(0); idxCert < psProvSigner->csCounterSigners; ++idxCert)
 														{
-															psProvCert = ::WTHelperGetProvCertFromChain(psProvSigner, dwCertIndex);
+															psProvCert = ::WTHelperGetProvCertFromChain(&psProvSigner->pasCounterSigners[idxCert], idxCert);
 															if (psProvCert)
 															{
-																__wchar_t* szCertDesc(::GetCertificateDescription(psProvCert->pCert));
+																__wchar_t* szCertDesc = ::GetCertificateDescription(psProvCert->pCert);
 																if (szCertDesc)
 																{
 																	ShowString(hOut, szCertDesc);
 																	ShowString(hOut, szNewLine);
-																	::HeapFree(hProcessHeap, 0, szCertDesc);
-																}
-															}
-														}
-													}
-
-													if (psProvSigner->csCounterSigners && fbVerbose)
-													{
-														// retreive timestamp information
-														::FileTimeToLocalFileTime(&psProvSigner->pasCounterSigners[0].sftVerifyAsOf, &localFt);
-														::FileTimeToSystemTime(&localFt, &sysTime);
-
-														ShowResourceStringArgs(hOut, IDS_IMG_TIMESTAMP_DATETIME, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), sysTime.wDay, sysTime.wMonth,sysTime.wYear, sysTime.wHour,sysTime.wMinute,sysTime.wSecond);
-
-														if (psProvSigner->csCounterSigners)
-														{
-															if (1 == psProvSigner->csCounterSigners)
-																ShowResourceString(hOut, IDS_IMG_TIMESTAMP_SIGNER, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-															else
-																ShowResourceString(hOut, IDS_IMG_TIMESTAMP_SIGNERS, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-
-															for (DWORD idxCert(0); idxCert < psProvSigner->csCounterSigners; ++idxCert)
-															{
-																psProvCert = ::WTHelperGetProvCertFromChain(&psProvSigner->pasCounterSigners[idxCert], idxCert);
-																if (psProvCert)
-																{
-																	__wchar_t* szCertDesc = ::GetCertificateDescription(psProvCert->pCert);
-																	if (szCertDesc)
-																	{
-																		ShowString(hOut, szCertDesc);
-																		ShowString(hOut, szNewLine);
-																		::HeapFree(hProcessHeap, 0, szCertDesc);
-																	}
+																	ReleaseLoadedString(szCertDesc);
 																}
 															}
 														}
 													}
 												}
 											}
-											fbDigSigIsValid = true;
 										}
-										else
-										{
-											switch(hr)
-											{
-											case TRUST_E_BAD_DIGEST:
-												ShowResourceString(hOut, IDS_MSG_FILE_BAD_SIG, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-												break;
-											case TRUST_E_PROVIDER_UNKNOWN:
-												ShowResourceString(hOut, IDS_MSG_FILE_SIG_PROV_UNK, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-												break;
-											case TRUST_E_SUBJECT_NOT_TRUSTED:
-												ShowResourceString(hOut, IDS_MSG_FILE_SIG_NOT_TRUSTED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-												break;
-											default:
-												ShowResourceStringArgs(hOut, IDS_MSG_FILE_SIG_ERROR, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), hr);
-												break;
-											}
-											ShowString(hOut, szNewLine);
-										}
-									}
-
-									if (fbDigSig && fbDigSigIsValid)
-									{
-										ShowResourceString(hOut, IDS_MSG_FILE_SIG_OK, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-										ShowString(hOut, szNewLine);
-									}
-
-									HANDLE hFileMap(::CreateFileMappingW(hFile, nullptr, fbClean ? PAGE_READWRITE : PAGE_READONLY, 0, 0, nullptr));
-									if (!hFileMap)
-									{
-										ShowSysErrorMsg(::GetLastError(), hOut);
-										::CloseHandle(hFile);
-										nRetCode = -4;		//	Unable to map file
+										fbDigSigIsValid = true;
 									}
 									else
 									{
-										LPVOID lpFileBase(::MapViewOfFile(hFileMap, fbClean ? FILE_MAP_READ | FILE_MAP_WRITE : FILE_MAP_READ , 0, 0, 0));
-										if (!lpFileBase)
+										switch(hr)
 										{
-											ShowSysErrorMsg(::GetLastError(), hOut);
-											::CloseHandle(hFileMap);
-											::CloseHandle(hFile);
-											nRetCode = -5;		//	Unable to create view of map file
+										case TRUST_E_BAD_DIGEST:
+											ShowResourceString(hOut, IDS_MSG_FILE_BAD_SIG, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+											break;
+										case TRUST_E_PROVIDER_UNKNOWN:
+											ShowResourceString(hOut, IDS_MSG_FILE_SIG_PROV_UNK, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+											break;
+										case TRUST_E_SUBJECT_NOT_TRUSTED:
+											ShowResourceString(hOut, IDS_MSG_FILE_SIG_NOT_TRUSTED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+											break;
+										default:
+											ShowResourceStringArgs(hOut, IDS_MSG_FILE_SIG_ERROR, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), hr);
+											break;
+										}
+										ShowString(hOut, szNewLine);
+									}
+								}
+
+								if (fbDigSig && fbDigSigIsValid)
+								{
+									ShowResourceString(hOut, IDS_MSG_FILE_SIG_OK, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+									ShowString(hOut, szNewLine);
+								}
+
+								HANDLE hFileMap(::CreateFileMappingW(hFile, nullptr, fbClean ? PAGE_READWRITE : PAGE_READONLY, 0, 0, nullptr));
+								if (!hFileMap)
+								{
+									ShowSysErrorMsg(::GetLastError(), hOut);
+									::CloseHandle(hFile);
+									nRetCode = -4;		//	Unable to map file
+								}
+								else
+								{
+									LPVOID lpFileBase(::MapViewOfFile(hFileMap, fbClean ? FILE_MAP_READ | FILE_MAP_WRITE : FILE_MAP_READ , 0, 0, 0));
+									if (!lpFileBase)
+									{
+										ShowSysErrorMsg(::GetLastError(), hOut);
+										::CloseHandle(hFileMap);
+										::CloseHandle(hFile);
+										nRetCode = -5;		//	Unable to create view of map file
+									}
+									else
+									{
+										//HMODULE hModule(reinterpret_cast<HMODULE>(lpFileBase));
+										PIMAGE_DOS_HEADER lpImgDOSHdr(reinterpret_cast<PIMAGE_DOS_HEADER>(lpFileBase));
+										if (fbVerbose)
+										{
+											ShowDOSHeader(lpImgDOSHdr, hOut);
+											ShowString(hOut, szNewLine);
+										}
+										if ((lpImgDOSHdr ->e_magic != IMAGE_DOS_SIGNATURE) || (lpImgDOSHdr ->e_lfarlc != 0x40))
+										{
+											nRetCode = -9;		//	DOS stub is damaged
+											ShowResourceString(hOut, IDS_MSG_DOS_HDR_INVALID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 										}
 										else
 										{
-											//HMODULE hModule(reinterpret_cast<HMODULE>(lpFileBase));
-											PIMAGE_DOS_HEADER lpImgDOSHdr(reinterpret_cast<PIMAGE_DOS_HEADER>(lpFileBase));
+											PIMAGE_NT_HEADERS lpImgNTHdrs(reinterpret_cast<PIMAGE_NT_HEADERS>(reinterpret_cast<UINT_PTR>(lpImgDOSHdr) + lpImgDOSHdr ->e_lfanew));
 											if (fbVerbose)
 											{
-												ShowDOSHeader(lpImgDOSHdr, hOut);
+												ShowNTPEHeader(lpImgNTHdrs, hOut);
 												ShowString(hOut, szNewLine);
 											}
-											if ((lpImgDOSHdr ->e_magic != IMAGE_DOS_SIGNATURE) || (lpImgDOSHdr ->e_lfarlc != 0x40))
+											if (lpImgNTHdrs ->Signature != IMAGE_NT_SIGNATURE)
 											{
-												nRetCode = -9;		//	DOS stub is damaged
-												ShowResourceString(hOut, IDS_MSG_DOS_HDR_INVALID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+												nRetCode = -8;		//	PE headers are damaged
+												ShowResourceString(hOut, IDS_MSG_NT_PE_INVALID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 											}
 											else
 											{
-												PIMAGE_NT_HEADERS lpImgNTHdrs(reinterpret_cast<PIMAGE_NT_HEADERS>(reinterpret_cast<UINT_PTR>(lpImgDOSHdr) + lpImgDOSHdr ->e_lfanew));
+												PIMAGE_FILE_HEADER lpImgFileHdr(&lpImgNTHdrs ->FileHeader);
 												if (fbVerbose)
 												{
-													ShowNTPEHeader(lpImgNTHdrs, hOut);
+													ShowImgFileHdr(lpImgFileHdr, hOut);
 													ShowString(hOut, szNewLine);
 												}
-												if (lpImgNTHdrs ->Signature != IMAGE_NT_SIGNATURE)
+
+												PIMAGE_OPTIONAL_HEADER lpImgOptHdr(&lpImgNTHdrs ->OptionalHeader);
+												if (fbVerbose)
 												{
-													nRetCode = -8;		//	PE headers are damaged
-													ShowResourceString(hOut, IDS_MSG_NT_PE_INVALID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+													ShowImgOptHdr(lpImgOptHdr, hOut);
+													ShowString(hOut, szNewLine);
 												}
-												else
+
+												if (IMAGE_NT_OPTIONAL_HDR32_MAGIC == lpImgOptHdr ->Magic)
 												{
-													PIMAGE_FILE_HEADER lpImgFileHdr(&lpImgNTHdrs ->FileHeader);
+													PIMAGE_DATA_DIRECTORY lpImgDataDir(&lpImgOptHdr ->DataDirectory[0]);
 													if (fbVerbose)
 													{
-														ShowImgFileHdr(lpImgFileHdr, hOut);
+														ShowDataDirContent(lpImgDataDir, lpImgOptHdr ->NumberOfRvaAndSizes, hOut);
 														ShowString(hOut, szNewLine);
 													}
 
-													PIMAGE_OPTIONAL_HEADER lpImgOptHdr(&lpImgNTHdrs ->OptionalHeader);
-													if (fbVerbose)
+													PIMAGE_SECTION_HEADER lpImgSectionHdr(IMAGE_FIRST_SECTION(lpImgNTHdrs));
+													ShowSections(lpImgSectionHdr, lpImgOptHdr, lpImgFileHdr ->NumberOfSections, lpFileBase, hOut, fbVerbose);
+													ShowString(hOut, szNewLine);
+
+													//	Calculate checksum ...
+													DWORD dwHeaderSum(0), dwCheckSum(0);
+													if (fbChecksum)
 													{
-														ShowImgOptHdr(lpImgOptHdr, hOut);
-														ShowString(hOut, szNewLine);
+														if (::CheckSumMappedFile(lpFileBase, liFileSize.LowPart, &dwHeaderSum, &dwCheckSum))
+														{
+															ShowResourceStringArgs(hOut, IDS_MSG_CHECKSUM_ORIGINAL, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), dwHeaderSum);
+															ShowResourceStringArgs(hOut, IDS_MSG_CHECKSUM_CALCD, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), dwCheckSum);
+
+															CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+															BOOL fbRestoreAttr(::GetConsoleScreenBufferInfo(hOut, &csbi));
+															if (dwCheckSum == dwHeaderSum)
+															{																
+																ShowResourceString(hOut, IDS_MSG_CHECKSUM_CORRECT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+																fbRestoreAttr = FALSE;
+															}
+															else
+															{
+																::SetConsoleTextAttribute(hOut, FOREGROUND_RED | FOREGROUND_INTENSITY | COMMON_LVB_UNDERSCORE);
+																ShowResourceString(hOut, IDS_MSG_CHECKSUM_INCORRECT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+															}
+															if (fbRestoreAttr)
+																::SetConsoleTextAttribute(hOut, csbi.wAttributes);
+														}
+														else
+														{
+															DWORD dwErrCode(::GetLastError());
+															ShowResourceString(hOut, IDS_MSG_CHECKSUM_FAIL, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+															ShowSysErrorMsg(dwErrCode, hOut);
+															nRetCode = -7;		//	System error
+														}
 													}
 
-													if (IMAGE_NT_OPTIONAL_HDR32_MAGIC == lpImgOptHdr ->Magic)
+													if (fbClean)
 													{
-														PIMAGE_DATA_DIRECTORY lpImgDataDir(&lpImgOptHdr ->DataDirectory[0]);
+														FillSectionsGap(lpImgSectionHdr, lpImgOptHdr, lpImgFileHdr ->NumberOfSections, lpFileBase, byFiller);
 														if (fbVerbose)
-														{
-															ShowDataDirContent(lpImgDataDir, lpImgOptHdr ->NumberOfRvaAndSizes, hOut);
-															ShowString(hOut, szNewLine);
-														}
-
-														PIMAGE_SECTION_HEADER lpImgSectionHdr(IMAGE_FIRST_SECTION(lpImgNTHdrs));
-														ShowSections(lpImgSectionHdr, lpImgOptHdr, lpImgFileHdr ->NumberOfSections, lpFileBase, hOut, fbVerbose);
-														ShowString(hOut, szNewLine);
-
-														//	Calculate checksum ...
-														DWORD dwHeaderSum(0), dwCheckSum(0);
-														if (fbChecksum)
-														{
-															if (::CheckSumMappedFile(lpFileBase, liFileSize.LowPart, &dwHeaderSum, &dwCheckSum))
-															{
-																ShowResourceStringArgs(hOut, IDS_MSG_CHECKSUM_ORIGINAL, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), dwHeaderSum);
-																ShowResourceStringArgs(hOut, IDS_MSG_CHECKSUM_CALCD, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), dwCheckSum);
-
-																CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
-																BOOL fbRestoreAttr(::GetConsoleScreenBufferInfo(hOut, &csbi));
-																if (dwCheckSum == dwHeaderSum)
-																{																
-																	ShowResourceString(hOut, IDS_MSG_CHECKSUM_CORRECT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-																	fbRestoreAttr = FALSE;
-																}
-																else
-																{
-																	::SetConsoleTextAttribute(hOut, FOREGROUND_RED | FOREGROUND_INTENSITY | COMMON_LVB_UNDERSCORE);
-																	ShowResourceString(hOut, IDS_MSG_CHECKSUM_INCORRECT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-																}
-																if (fbRestoreAttr)
-																	::SetConsoleTextAttribute(hOut, csbi.wAttributes);
-															}
-															else
-															{
-																DWORD dwErrCode(::GetLastError());
-																ShowResourceString(hOut, IDS_MSG_CHECKSUM_FAIL, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-																ShowSysErrorMsg(dwErrCode, hOut);
-																nRetCode = -7;		//	System error
-															}
-														}
-
-														if (fbClean)
-														{
-															FillSectionsGap(lpImgSectionHdr, lpImgOptHdr, lpImgFileHdr ->NumberOfSections, lpFileBase, byFiller);
-															if (fbVerbose)
-																ShowResourceString(hOut, IDS_MSG_GAPS_FILLED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+															ShowResourceString(hOut, IDS_MSG_GAPS_FILLED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 															
-															if (::CheckSumMappedFile(lpFileBase, liFileSize.LowPart, &dwHeaderSum, &dwCheckSum))
+														if (::CheckSumMappedFile(lpFileBase, liFileSize.LowPart, &dwHeaderSum, &dwCheckSum))
+														{
+															if (dwHeaderSum != dwCheckSum)
 															{
-																if (dwHeaderSum != dwCheckSum)
-																{
-																	lpImgOptHdr ->CheckSum = dwCheckSum;
-																	ShowResourceString(hOut, IDS_MSG_CHECKSUM_ADJUSTED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-																}
-
-																if (!::FlushViewOfFile(lpFileBase, 0))
-																{
-																	nRetCode = -7;		//	System error
-																	ShowSysErrorMsg(::GetLastError(), hOut);
-																}
-																else
-																{
-																	ShowResourceString(hOut, IDS_MSG_COMPLETED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));																
-																	if (fbReportEvent)
-																		MakeReportEventRecord(wszIdent, STATUS_SEVERITY_SUCCESS, MSG_PROCESSING_SUCCESS, 1, /*const_cast<const __wchar_t**>*/(&argv[1]));
-																}
+																lpImgOptHdr ->CheckSum = dwCheckSum;
+																ShowResourceString(hOut, IDS_MSG_CHECKSUM_ADJUSTED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
 															}
-															else
+
+															if (!::FlushViewOfFile(lpFileBase, 0))
 															{
 																nRetCode = -7;		//	System error
 																ShowSysErrorMsg(::GetLastError(), hOut);
 															}
+															else
+															{
+																ShowResourceString(hOut, IDS_MSG_COMPLETED, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));																
+																if (fbReportEvent)
+																	MakeReportEventRecord(wszIdent, STATUS_SEVERITY_SUCCESS, MSG_PROCESSING_SUCCESS, 1, /*const_cast<const __wchar_t**>*/(&argv[1]));
+															}
+														}
+														else
+														{
+															nRetCode = -7;		//	System error
+															ShowSysErrorMsg(::GetLastError(), hOut);
 														}
 													}
-													else
-													{
-														ShowResourceString(hOut, IDS_IMG_NOT_32BIT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
-														nRetCode = -6;		//	Not 32-bit PE image
-													}
-
-													//__L_Cleanup:
-													::UnmapViewOfFile(lpFileBase);
-													::CloseHandle(hFileMap);
-													::CloseHandle(hFile);												
 												}
+												else
+												{
+													ShowResourceString(hOut, IDS_IMG_NOT_32BIT, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT));
+													nRetCode = -6;		//	Not 32-bit PE image
+												}
+
+												//__L_Cleanup:
+												::UnmapViewOfFile(lpFileBase);
+												::CloseHandle(hFileMap);
+												::CloseHandle(hFile);												
 											}
 										}
 									}
@@ -2295,6 +2295,7 @@ int __cdecl wmain(int argc, __wchar_t* argv[])
 				else
 				{
 					ShowResourceStringArgs(hOut, IDS_ERROR_FILE_ISNT_FOUND, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), argv[1]);
+					ShowUsage(hOut);
 					nRetCode = -2;				//	File is not exists
 				}
 			}
@@ -2317,7 +2318,7 @@ int __cdecl wmain(int argc, __wchar_t* argv[])
 	DWORD dwConAppTotal(0);
 	if (AllocBuffer(dwProcessListLen, &lpdwList))
 	{
-		DWORD dwReturnValue(::GetConsoleProcessList(lpdwList, dwProcessListLen));
+		DWORD dwReturnValue(dwConAppTotal = ::GetConsoleProcessList(lpdwList, dwProcessListLen));
 		if (dwReturnValue > dwProcessListLen)
 		{
 			//	Realloc buffer
