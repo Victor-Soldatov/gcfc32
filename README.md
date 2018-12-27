@@ -1,5 +1,3 @@
-# README.MD
-# gcfc32 
 #
 
  gcfc32 - PE32 inter-sections gapes cleaner & filler console utility ver. 1.0.0.1
