@@ -7,10 +7,11 @@
 
  Options:
 
- -V(erbose) - verbose output
- -C(lean) - clean gapes between sections (default filler is 0x00)
- -F(iller):Value - set user defined filler value (byte)
- -S(um) - calculate PE image checksum
+#
+ -V(erbose) - verbose output;<br/>
+ -C(lean) - clean gapes between sections (default filler is 0x00);
+ -F(iller):Value - set user defined filler value (byte);
+ -S(um) - calculate PE image checksum;
 
  Simple console utility application can be used to view content of PE32 inter-sections gapes or to fill them with specified or default filler.
 
