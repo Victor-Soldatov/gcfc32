@@ -18,16 +18,18 @@ TARGETDIR = .\Debug32
 TARGETDIR = .\Release32
 !ENDIF
 
+# Adjust variables with valid tools' pathes ...
+
 CPP = "d:\Microsoft Visual Studio 10.0\VC\bin\cl.exe"
 RSC = rc.exe
 LINK = "d:\Microsoft Visual Studio 10.0\VC\bin\link.exe"
 MC = mc.exe
 
+# Adjust variables with valid pathes ...
+
 LIB_PATH = "d:\Microsoft SDKs\Windows\v7.0\Lib"
 INC_PATH = "d:\Microsoft SDKs\Windows\v7.0\Include"
 RT_PATH = "d:\Microsoft Visual Studio 10.0\VC\include"
-
-# /EHsc /nologo /MTd
 
 !IF "$(DEBUG)" == "1"
 CPP_PROJ = /c /MTd /I $(RT_PATH) /I $(INC_PATH) /Zi /W4 /WX- /Od /Oy- /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_UNICODE" /D "UNICODE" /Gm /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fp"$(OBJDIR)\$(TARGET).pch" /Fa"$(TARGETDIR)" /Fo"$(OBJDIR)\$(TARGET).obj" /Fd"$(OBJDIR)\$(TARGET).pdb" /Gz /analyze- /errorReport:queue

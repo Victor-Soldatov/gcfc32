@@ -12,6 +12,6 @@
 
  Simple console utility application can be used to view content of PE32 inter-sections gapes or to fill them with specified or default filler.
 
- Use makefile to build executable file.
+ Use makefile to build executable file. Adjust variables with valid pathes.
 
 
